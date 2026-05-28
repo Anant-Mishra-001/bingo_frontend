@@ -1,0 +1,30 @@
+:root {
+  /* Color Palette */
+  --bg-dark: #0f172a;
+  --bg-dark-card: rgba(30, 41, 59, 0.7);
+  --primary: #6366f1; /* Indigo */
+  --primary-hover: #4f46e5;
+  --secondary: #ec4899; /* Pink */
+  --accent: #10b981; /* Emerald */
+  --text-primary: #f8fafc;
+  --text-secondary: #94a3b8;
+  --border-color: rgba(255, 255, 255, 0.1);
+
+  /* Glassmorphism Details */
+  --backdrop-blur: blur(12px);
+  --glass-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.37);
+
+  /* Fonts */
+  --font-family: 'Outfit', 'Inter', sans-serif;
+
+  /* Additional Design Tokens */
+  --bg-primary: var(--bg-dark);
+  --bg-secondary: var(--bg-dark-card);
+  --font-sans: var(--font-family);
+  --radius-sm: 6px;
+  --radius-md: 12px;
+  --radius-lg: 18px;
+  --radius-full: 9999px;
+  --transition-fast: 0.15s ease;
+  --transition-normal: 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+}
