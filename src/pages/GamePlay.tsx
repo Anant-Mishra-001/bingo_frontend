@@ -21,12 +21,14 @@ interface GameState {
   status: 'SETUP' | 'PLAYING' | 'FINISHED';
   winnerId: string | null;
   timerExpiresAt?: number;
+  timerDurationRemaining?: number;
   pendingSelection?: {
     number: number;
     selectorPlayerId: string;
   };
   disconnectedUsername?: string | null;
   disconnectExpiresAt?: number | null;
+  disconnectDurationRemaining?: number | null;
 }
 
 interface ChatMessage {
@@ -66,32 +68,28 @@ export const GamePlay: React.FC<GamePlayProps> = ({
   }, [chatLog]);
 
   React.useEffect(() => {
-    if (!gameState.disconnectExpiresAt) return;
+    if (gameState.disconnectDurationRemaining === undefined || gameState.disconnectDurationRemaining === null) return;
 
-    const tick = () => {
-      const remaining = Math.max(0, Math.round((gameState.disconnectExpiresAt! - Date.now()) / 1000));
-      setDisconnectTimeLeft(remaining);
-    };
+    setDisconnectTimeLeft(gameState.disconnectDurationRemaining);
 
-    tick();
-    const interval = setInterval(tick, 200);
+    const interval = setInterval(() => {
+      setDisconnectTimeLeft((prev) => Math.max(0, prev - 1));
+    }, 1000);
 
     return () => clearInterval(interval);
-  }, [gameState.disconnectExpiresAt]);
+  }, [gameState.disconnectDurationRemaining]);
 
   React.useEffect(() => {
-    if (!gameState.timerExpiresAt) return;
+    if (gameState.timerDurationRemaining === undefined || gameState.timerDurationRemaining === null) return;
 
-    const tick = () => {
-      const remaining = Math.max(0, Math.round((gameState.timerExpiresAt! - Date.now()) / 1000));
-      setTimeLeft(remaining);
-    };
+    setTimeLeft(gameState.timerDurationRemaining);
 
-    tick();
-    const interval = setInterval(tick, 200);
+    const interval = setInterval(() => {
+      setTimeLeft((prev) => Math.max(0, prev - 1));
+    }, 1000);
 
     return () => clearInterval(interval);
-  }, [gameState.timerExpiresAt]);
+  }, [gameState.timerDurationRemaining]);
 
   const activePlayer = gameState.players[gameState.activePlayerIndex];
   

@@ -63,9 +63,11 @@ export function useBingo(socket: Socket | null) {
         status: backendState.status === 'WAITING' ? 'SETUP' : backendState.status,
         winnerId: backendState.winnerPlayerId || null,
         timerExpiresAt: backendState.timerExpiresAt,
+        timerDurationRemaining: backendState.timerDurationRemaining,
         pendingSelection: backendState.pendingSelection,
         disconnectedUsername: backendState.disconnectedUsername,
         disconnectExpiresAt: backendState.disconnectExpiresAt,
+        disconnectDurationRemaining: backendState.disconnectDurationRemaining,
       };
     };
 
