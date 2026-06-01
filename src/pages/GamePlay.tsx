@@ -29,6 +29,7 @@ interface GameState {
   disconnectedUsername?: string | null;
   disconnectExpiresAt?: number | null;
   disconnectDurationRemaining?: number | null;
+  playAgainRequests?: string[];
 }
 
 interface ChatMessage {
@@ -38,12 +39,20 @@ interface ChatMessage {
   isEmoji: boolean;
 }
 
+interface FloatingNotification {
+  id: string;
+  username: string;
+  message: string;
+  isEmoji: boolean;
+}
+
 interface GamePlayProps {
   gameState: GameState;
   myPlayerId: string;
   myBoard: number[][];
   onSelectNumber: (num: number) => void;
   onLeaveRoom: () => void;
+  onRequestPlayAgain: () => void;
   chatLog: ChatMessage[];
   onSendChat: (message: string) => void;
 }
@@ -54,42 +63,83 @@ export const GamePlay: React.FC<GamePlayProps> = ({
   myBoard,
   onSelectNumber,
   onLeaveRoom,
+  onRequestPlayAgain,
   chatLog,
   onSendChat,
 }) => {
   const [timeLeft, setTimeLeft] = React.useState<number>(30);
   const [disconnectTimeLeft, setDisconnectTimeLeft] = React.useState<number>(30);
-  const chatEndRef = React.useRef<HTMLDivElement>(null);
+  const [notifications, setNotifications] = React.useState<FloatingNotification[]>([]);
+
+  const chatContainerRef = React.useRef<HTMLDivElement>(null);
+  const prevChatCountRef = React.useRef<number>(chatLog.length);
 
   React.useEffect(() => {
-    if (chatEndRef.current) {
-      chatEndRef.current.scrollIntoView({ behavior: 'smooth' });
+    if (chatContainerRef.current) {
+      chatContainerRef.current.scrollTop = chatContainerRef.current.scrollHeight;
     }
   }, [chatLog]);
 
   React.useEffect(() => {
-    if (gameState.disconnectDurationRemaining === undefined || gameState.disconnectDurationRemaining === null) return;
+    if (chatLog.length > prevChatCountRef.current) {
+      const newMessages = chatLog.slice(prevChatCountRef.current);
+      
+      setNotifications((prev) => {
+        let updated = [...prev];
+        for (const msg of newMessages) {
+          const id = `${Date.now()}-${Math.random()}`;
+          updated.push({
+            id,
+            username: msg.username,
+            message: msg.message,
+            isEmoji: msg.isEmoji,
+          });
 
-    setDisconnectTimeLeft(gameState.disconnectDurationRemaining);
+          setTimeout(() => {
+            setNotifications((current) => current.filter((n) => n.id !== id));
+          }, 5000);
+        }
 
-    const interval = setInterval(() => {
-      setDisconnectTimeLeft((prev) => Math.max(0, prev - 1));
-    }, 1000);
-
-    return () => clearInterval(interval);
-  }, [gameState.disconnectDurationRemaining]);
+        if (updated.length > 3) {
+          updated = updated.slice(updated.length - 3);
+        }
+        return updated;
+      });
+    }
+    prevChatCountRef.current = chatLog.length;
+  }, [chatLog]);
 
   React.useEffect(() => {
-    if (gameState.timerDurationRemaining === undefined || gameState.timerDurationRemaining === null) return;
+    if (gameState.disconnectExpiresAt === undefined || gameState.disconnectExpiresAt === null) return;
 
-    setTimeLeft(gameState.timerDurationRemaining);
+    const updateTimer = () => {
+      const offset = Number(localStorage.getItem('server_clock_offset') || 0);
+      const currentServerTime = Date.now() + offset;
+      const remainingMs = gameState.disconnectExpiresAt! - currentServerTime;
+      setDisconnectTimeLeft(Math.max(0, Math.ceil(remainingMs / 1000)));
+    };
 
-    const interval = setInterval(() => {
-      setTimeLeft((prev) => Math.max(0, prev - 1));
-    }, 1000);
+    updateTimer();
+    const interval = setInterval(updateTimer, 500);
 
     return () => clearInterval(interval);
-  }, [gameState.timerDurationRemaining]);
+  }, [gameState.disconnectExpiresAt]);
+
+  React.useEffect(() => {
+    if (gameState.timerExpiresAt === undefined || gameState.timerExpiresAt === null) return;
+
+    const updateTimer = () => {
+      const offset = Number(localStorage.getItem('server_clock_offset') || 0);
+      const currentServerTime = Date.now() + offset;
+      const remainingMs = gameState.timerExpiresAt! - currentServerTime;
+      setTimeLeft(Math.max(0, Math.ceil(remainingMs / 1000)));
+    };
+
+    updateTimer();
+    const interval = setInterval(updateTimer, 500);
+
+    return () => clearInterval(interval);
+  }, [gameState.timerExpiresAt]);
 
   const activePlayer = gameState.players[gameState.activePlayerIndex];
   
@@ -112,6 +162,9 @@ export const GamePlay: React.FC<GamePlayProps> = ({
     const myPlayer = gameState.players.find((p) => p.id === myPlayerId);
     const opponentPlayer = gameState.players.find((p) => p.id !== myPlayerId);
 
+    const hasRequestedPlayAgain = gameState.playAgainRequests?.includes(myPlayerId);
+    const opponentRequestedPlayAgain = opponentPlayer && gameState.playAgainRequests?.includes(opponentPlayer.id);
+
     return (
       <div className="flex flex-col items-center justify-center max-w-6xl mx-auto px-4 py-6 w-full gap-8">
         {/* Winner Banner */}
@@ -128,9 +181,33 @@ export const GamePlay: React.FC<GamePlayProps> = ({
               Completed {currentWinner.linesCompleted} lines.
             </p>
           )}
-          <div className="mt-6 flex justify-center">
-            <Button onClick={onLeaveRoom} variant="primary" className="px-6 py-2.5">
+
+          {opponentRequestedPlayAgain && (
+            <div className="mt-4 text-sm font-bold text-emerald-400 animate-pulse bg-emerald-500/10 px-4 py-2 rounded-xl border border-emerald-500/20 inline-block">
+              🎮 {opponentPlayer?.username} wants to play again!
+            </div>
+          )}
+
+          <div className="mt-6 flex flex-wrap gap-4 justify-center">
+            <Button onClick={onLeaveRoom} variant="outline" className="px-6 py-2.5">
               Return to Lobby
+            </Button>
+            <Button
+              onClick={onRequestPlayAgain}
+              disabled={hasRequestedPlayAgain}
+              variant={opponentRequestedPlayAgain ? "accent" : "primary"}
+              className={`px-6 py-2.5 ${opponentRequestedPlayAgain && !hasRequestedPlayAgain ? 'animate-pulse' : ''}`}
+            >
+              {hasRequestedPlayAgain ? (
+                <span className="flex items-center gap-2 justify-center">
+                  <span className="animate-spin rounded-full h-4 w-4 border-b-2 border-white" />
+                  Waiting for Opponent...
+                </span>
+              ) : opponentRequestedPlayAgain ? (
+                "Accept Rematch"
+              ) : (
+                "Play Again"
+              )}
             </Button>
           </div>
         </Card>
@@ -395,7 +472,10 @@ export const GamePlay: React.FC<GamePlayProps> = ({
               <span className="text-xs text-slate-500 font-normal">Emojis & Taunts</span>
             </h3>
 
-            <div className="flex-1 overflow-y-auto pr-1 flex flex-col gap-2 min-h-0">
+            <div
+              ref={chatContainerRef}
+              className="flex-1 overflow-y-auto pr-1 flex flex-col gap-2 min-h-0"
+            >
               {chatLog.length === 0 ? (
                 <div className="text-xs text-slate-500 italic my-auto text-center">
                   Select an emoji or send a message to start taunting!
@@ -423,7 +503,6 @@ export const GamePlay: React.FC<GamePlayProps> = ({
                   </div>
                 ))
               )}
-              <div ref={chatEndRef} />
             </div>
 
             <div className="flex justify-between items-center gap-1 border-t border-slate-800 pt-2 select-none">
@@ -467,6 +546,38 @@ export const GamePlay: React.FC<GamePlayProps> = ({
             </form>
           </Card>
         </div>
+      </div>
+
+      {/* Floating Chat Notifications */}
+      <div className="fixed top-4 right-4 z-50 flex flex-col gap-1.5 items-end pointer-events-none max-w-[240px] md:max-w-sm">
+        <style>{`
+          @keyframes fadeInRight {
+            from {
+              opacity: 0;
+              transform: translateX(1rem);
+            }
+            to {
+              opacity: 1;
+              transform: translateX(0);
+            }
+          }
+          .animate-fade-in-right {
+            animation: fadeInRight 0.3s ease-out forwards;
+          }
+        `}</style>
+        {notifications.map((n) => (
+          <div
+            key={n.id}
+            className="w-fit bg-slate-950/90 backdrop-blur-md border border-slate-800/80 rounded-full px-3.5 py-1.5 shadow-xl flex items-center gap-2 animate-fade-in-right pointer-events-auto transition-all duration-300 border-l-2 border-l-indigo-500 max-w-full"
+          >
+            <span className="text-[10px] text-indigo-400 font-bold uppercase tracking-wider whitespace-nowrap">
+              {n.username}:
+            </span>
+            <span className={n.isEmoji ? 'text-lg line-clamp-1' : 'text-xs text-slate-200 font-medium line-clamp-1 break-all'}>
+              {n.message}
+            </span>
+          </div>
+        ))}
       </div>
     </div>
   );

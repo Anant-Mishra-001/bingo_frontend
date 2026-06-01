@@ -54,6 +54,13 @@ export const App: React.FC = () => {
     }
   }, [isConnected, bingo.roomCode]);
 
+  // If game is in SETUP phase and we haven't submitted the board, reset client-side board cache
+  useEffect(() => {
+    if (bingo.gameState?.status === 'SETUP' && !myPlayerState?.boardSubmitted) {
+      setMyBoard(null);
+    }
+  }, [bingo.gameState?.status, myPlayerState?.boardSubmitted]);
+
   const handleCreateRoom = (name: string) => {
     bingo.createRoom(name);
   };
@@ -155,6 +162,7 @@ export const App: React.FC = () => {
           myBoard={myBoard}
           onSelectNumber={handleSelectNumber}
           onLeaveRoom={handleLeaveRoom}
+          onRequestPlayAgain={() => bingo.roomCode && bingo.requestPlayAgain(bingo.roomCode)}
           chatLog={bingo.chatLog}
           onSendChat={(msg) => bingo.roomCode && bingo.sendChat(bingo.roomCode, msg)}
         />

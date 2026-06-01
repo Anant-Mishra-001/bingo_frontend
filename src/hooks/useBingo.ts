@@ -10,6 +10,22 @@ export function useBingo(socket: Socket | null) {
   useEffect(() => {
     if (!socket) return;
 
+    const syncClock = () => {
+      socket.emit('SYNC_CLOCK', { clientTime: Date.now() });
+    };
+
+    socket.on('connect', syncClock);
+    socket.on('SYNC_CLOCK_RESPONSE', ({ clientTime, serverTime }) => {
+      const rtt = Date.now() - clientTime;
+      const estimatedServerTime = serverTime + rtt / 2;
+      const clockOffset = estimatedServerTime - Date.now();
+      localStorage.setItem('server_clock_offset', clockOffset.toString());
+    });
+
+    if (socket.connected) {
+      syncClock();
+    }
+
     // Listeners
     socket.on('ROOM_CREATED', ({ roomCode }) => {
       setRoomCode(roomCode);
@@ -68,6 +84,7 @@ export function useBingo(socket: Socket | null) {
         disconnectedUsername: backendState.disconnectedUsername,
         disconnectExpiresAt: backendState.disconnectExpiresAt,
         disconnectDurationRemaining: backendState.disconnectDurationRemaining,
+        playAgainRequests: backendState.playAgainRequests || [],
       };
     };
 
@@ -99,6 +116,8 @@ export function useBingo(socket: Socket | null) {
     });
 
     return () => {
+      socket.off('connect', syncClock);
+      socket.off('SYNC_CLOCK_RESPONSE');
       socket.off('ROOM_CREATED');
       socket.off('GAME_UPDATED');
       socket.off('ERROR');
@@ -137,6 +156,10 @@ export function useBingo(socket: Socket | null) {
     socket?.emit('SELECT_NUMBER', { roomCode, number });
   };
 
+  const requestPlayAgain = (roomCode: string) => {
+    socket?.emit('REQUEST_PLAY_AGAIN', { roomCode });
+  };
+
   return {
     roomCode,
     setRoomCode,
@@ -150,6 +173,7 @@ export function useBingo(socket: Socket | null) {
     sendChat,
     submitBoard,
     selectNumber,
+    requestPlayAgain,
     chatLog,
     setChatLog,
   };
