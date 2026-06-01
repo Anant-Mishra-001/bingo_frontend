@@ -74,6 +74,9 @@ export const GamePlay: React.FC<GamePlayProps> = ({
   const chatContainerRef = React.useRef<HTMLDivElement>(null);
   const prevChatCountRef = React.useRef<number>(chatLog.length);
 
+  const activePlayer = gameState.players[gameState.activePlayerIndex];
+  const myPlayerState = gameState.players.find((p) => p.id === myPlayerId);
+
   React.useEffect(() => {
     if (chatContainerRef.current) {
       chatContainerRef.current.scrollTop = chatContainerRef.current.scrollHeight;
@@ -84,30 +87,36 @@ export const GamePlay: React.FC<GamePlayProps> = ({
     if (chatLog.length > prevChatCountRef.current) {
       const newMessages = chatLog.slice(prevChatCountRef.current);
       
-      setNotifications((prev) => {
-        let updated = [...prev];
-        for (const msg of newMessages) {
-          const id = `${Date.now()}-${Math.random()}`;
-          updated.push({
-            id,
-            username: msg.username,
-            message: msg.message,
-            isEmoji: msg.isEmoji,
-          });
+      const incomingMessages = newMessages.filter(
+        (msg) => msg.username !== myPlayerState?.username
+      );
 
-          setTimeout(() => {
-            setNotifications((current) => current.filter((n) => n.id !== id));
-          }, 5000);
-        }
+      if (incomingMessages.length > 0) {
+        setNotifications((prev) => {
+          let updated = [...prev];
+          for (const msg of incomingMessages) {
+            const id = `${Date.now()}-${Math.random()}`;
+            updated.push({
+              id,
+              username: msg.username,
+              message: msg.message,
+              isEmoji: msg.isEmoji,
+            });
 
-        if (updated.length > 3) {
-          updated = updated.slice(updated.length - 3);
-        }
-        return updated;
-      });
+            setTimeout(() => {
+              setNotifications((current) => current.filter((n) => n.id !== id));
+            }, 5000);
+          }
+
+          if (updated.length > 3) {
+            updated = updated.slice(updated.length - 3);
+          }
+          return updated;
+        });
+      }
     }
     prevChatCountRef.current = chatLog.length;
-  }, [chatLog]);
+  }, [chatLog, myPlayerState?.username]);
 
   React.useEffect(() => {
     if (gameState.disconnectExpiresAt === undefined || gameState.disconnectExpiresAt === null) return;
@@ -141,15 +150,12 @@ export const GamePlay: React.FC<GamePlayProps> = ({
     return () => clearInterval(interval);
   }, [gameState.timerExpiresAt]);
 
-  const activePlayer = gameState.players[gameState.activePlayerIndex];
-  
   // Phase & Turn logic
   const pendingSelection = gameState.pendingSelection;
   const isPending = !!pendingSelection;
   const isMyTurnToSelect = !isPending && (activePlayer?.id === myPlayerId);
   const isMyTurnToRespond = isPending && (pendingSelection.selectorPlayerId !== myPlayerId);
 
-  const myPlayerState = gameState.players.find((p) => p.id === myPlayerId);
   const myLinesCompleted = myPlayerState?.linesCompleted || 0;
 
   const myMarkedSet = new Set(myPlayerState?.markedNumbers || []);
@@ -549,26 +555,26 @@ export const GamePlay: React.FC<GamePlayProps> = ({
       </div>
 
       {/* Floating Chat Notifications */}
-      <div className="fixed top-4 right-4 z-50 flex flex-col gap-1.5 items-end pointer-events-none max-w-[240px] md:max-w-sm">
+      <div className="fixed top-4 left-4 z-50 flex flex-col gap-1.5 items-start pointer-events-none max-w-[240px] md:max-w-sm">
         <style>{`
-          @keyframes fadeInRight {
+          @keyframes fadeInLeft {
             from {
               opacity: 0;
-              transform: translateX(1rem);
+              transform: translateX(-1rem);
             }
             to {
               opacity: 1;
               transform: translateX(0);
             }
           }
-          .animate-fade-in-right {
-            animation: fadeInRight 0.3s ease-out forwards;
+          .animate-fade-in-left {
+            animation: fadeInLeft 0.3s ease-out forwards;
           }
         `}</style>
         {notifications.map((n) => (
           <div
             key={n.id}
-            className="w-fit bg-slate-950/90 backdrop-blur-md border border-slate-800/80 rounded-full px-3.5 py-1.5 shadow-xl flex items-center gap-2 animate-fade-in-right pointer-events-auto transition-all duration-300 border-l-2 border-l-indigo-500 max-w-full"
+            className="w-fit bg-slate-950/90 backdrop-blur-md border border-slate-800/80 rounded-full px-3.5 py-1.5 shadow-xl flex items-center gap-2 animate-fade-in-left pointer-events-auto transition-all duration-300 border-l-2 border-l-indigo-500 max-w-full"
           >
             <span className="text-[10px] text-indigo-400 font-bold uppercase tracking-wider whitespace-nowrap">
               {n.username}:
