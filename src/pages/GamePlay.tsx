@@ -77,11 +77,11 @@ export const GamePlay: React.FC<GamePlayProps> = ({
   const activePlayer = gameState.players[gameState.activePlayerIndex];
   const myPlayerState = gameState.players.find((p) => p.id === myPlayerId);
 
-  React.useEffect(() => {
-    if (chatContainerRef.current) {
-      chatContainerRef.current.scrollTop = chatContainerRef.current.scrollHeight;
-    }
-  }, [chatLog]);
+  // React.useEffect(() => {
+  //   if (chatContainerRef.current) {
+  //     chatContainerRef.current.scrollTop = chatContainerRef.current.scrollHeight;
+  //   }
+  // }, [chatLog]);
 
   React.useEffect(() => {
     if (chatLog.length > prevChatCountRef.current) {
